@@ -111,3 +111,49 @@ def avaliar_modelo(nome, modelo, X, y):
 # Função para executar os 5 modelos:
 for nome, modelo in modelos.items():
     avaliar_modelo(nome, modelo, X, y)
+
+#  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  PRÉ-PROCESSAMENTO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+import pandas as pd
+
+print("\n INICIANDO PRÉ-PROCESSAMENTO \n")
+
+#Carregar dataset
+df = pd.read_csv("classData.csv")
+
+print("Shape original:", df.shape)
+print("\nPrimeiros 5 registros:")
+print(df.head())
+
+#Informações básicas sobre o dataset
+print("\nTipos das colunas:")
+print(df.dtypes)
+
+print("\nValores ausentes por coluna:")
+print(df.isnull().sum())
+
+print("\nTotal de linhas duplicadas:", df.duplicated().sum())
+
+#Limpeza para remover duplicadas e nulos
+df_clean = df.drop_duplicates()
+df_clean = df_clean.dropna()
+
+print("\nShape após remover duplicadas:", df_clean.shape)
+print("Shape após remover nulos:", df_clean.shape)
+
+# Distribuição da classe (detectada automaticamente)
+coluna_classe = df.columns[-1]
+print(f"\nDistribuição da classe ({coluna_classe}):")
+print(df[coluna_classe].value_counts())
+
+#Salvar bases
+df.to_csv("classData_original.csv", index=False)
+df_clean.to_csv("classData_processada.csv", index=False)
+
+print("\n Base original limpa salva como classData_original.csv")
+print("\n Base processada salva como classData_processada.csv")
+print("\n PRÉ-PROCESSAMENTO CONCLUÍDO \n")
+
+
+
