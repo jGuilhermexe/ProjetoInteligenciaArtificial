@@ -3,7 +3,7 @@ import pandas as pd  # Importação da biblioteca pandas para que seja possível
 import numpy as np  # Importação da biblioteca numpy para operações numéricas básicas
 
 # Ferramentas de validação e busca de parâmetros do scikit-learn
-from sklearn.model_selection import StratifiedKFold 
+from sklearn.model_selection import StratifiedKFold, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -59,7 +59,7 @@ print("\n PRÉ-PROCESSAMENTO CONCLUÍDO \n")
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 2) CARREGAMENTO DO DATASET ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 print("Iniciando carregamento do dataset processado...")
 
-# 🔴 CORREÇÃO: Lê o arquivo CSV FINAL (limpo de nulos, duplicatas e colunas vazias)
+# Carregando o dataset já processado.
 df = pd.read_csv("detect_dataset_processada.csv")
 
 # Fazendo a separação dos atributos (X) e rótulos (y):
@@ -79,27 +79,49 @@ print("Formato do DataFrame (linhas, colunas):", df.shape)
 # Nesta versão, **não teremos parâmetro nenhum**, pois isso será feito pelo seu amigo.
 # Mantemos APENAS os classificadores, como parte de "Uso dos Algoritmos".
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 3) DEFINIÇÃO DOS MODELOS E PARÂMETROS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# 3.1) Definição dos classificadores base (adicionado random_state para reprodutibilidade)
 modelos = {
-    "Decision Tree": DecisionTreeClassifier(),  # Árvore de Decisão
-    "KNN": KNeighborsClassifier(),              # KNN
-    "Naive Bayes": GaussianNB(),                # Naive Bayes
-    "Regressão Logística": LogisticRegression(max_iter=500),  # Regressão Logística
-    "MLP": MLPClassifier(max_iter=1000)         # MLP
+    "Decision Tree": DecisionTreeClassifier(random_state=42), 
+    "KNN": KNeighborsClassifier(), 
+    "Naive Bayes": GaussianNB(),
+    "Regressão Logística": LogisticRegression(max_iter=500, random_state=42), 
+    "MLP": MLPClassifier(max_iter=1000, random_state=42)
 }
 
+# 3.2) Definição dos grids de parâmetros para OTIMIZAÇÃO (Critério 1.2)
+
+# Grid para KNN (mínimo de 3 combinações garantido)
+params_knn = {
+    'clf__n_neighbors': [3, 5, 7, 9],  # K de 3, 5, 7 e 9
+    'clf__weights': ['uniform', 'distance'] # Dois tipos de pesos
+}
+
+# Grid para Decision Tree (mínimo de 3 combinações garantido)
+params_dt = {
+    'clf__criterion': ['gini', 'entropy'], # Critérios
+    'clf__max_depth': [5, 10, None],      # Profundidade (5, 10 ou ilimitada)
+    'clf__min_samples_split': [2, 10]     # Mínimo de amostras para um split
+}
+
+# Grid para MLP (mínimo de 3 combinações garantido)
+params_mlp = {
+    'clf__hidden_layer_sizes': [(50,), (100, 50)], # Estrutura das camadas ocultas
+    'clf__activation': ['relu', 'tanh'],           # Funções de ativação
+    'clf__alpha': [0.0001, 0.01]                   # Regularização L2
+}
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 4) FUNÇÃO DE AVALIAÇÃO EM 10-FOLD CV ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 def avaliar_modelo(nome, modelo, X, y):
     # Avalia um modelo usando Stratified 10-fold CV.
     #Calcula métricas fold-a-fold pra obter média e desvio padrão com sucesso
-
     # Parâmetros:
     # - nome: string com o nome do modelo (apenas para impressão)
     # - modelo: objeto classificador do sklearn (Como por exexmplo: DecisionTreeClassifier())
     # - X, y: dados e rótulos (Biblioteca pandas e DataFrame / Series)
 
-
-    print(f"\n🔵 Avaliando: {nome}")
+    print(f"\n Avaliando: {nome}")
 
     # Pipeline que aplica StandardScaler (normalização) e depois o classificador.
     # A ordem é importante: primeiro transformações (scaler), depois o estimador (clf).
@@ -143,7 +165,68 @@ def avaliar_modelo(nome, modelo, X, y):
     print(f"F1-Score: média={np.mean(f1s):.4f} | desvio={np.std(f1s):.4f}")
 
 
-#  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  5) EXECUTAR OS 5 MODELOS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Função para executar os 5 modelos:
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 5) OTIMIZAÇÃO DE PARÂMETROS (GridSearch) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def otimizar_modelo(nome, modelo, parametros, X, y):
+    print(f"\n✨ Otimizando Hiperparâmetros para: {nome} (GridSearch)")
+    
+    # Cria o Pipeline
+    pipeline = Pipeline([
+        ("scaler", StandardScaler()),
+        ("clf", modelo) 
+    ])
+    
+    # Configura o GridSearchCV (usa 10-Fold CV interno)
+    grid_search = GridSearchCV(
+        estimator=pipeline, 
+        param_grid=parametros, 
+        scoring='f1_weighted', # Usamos F1-Score Ponderado como a métrica principal para o GridSearch
+        cv=StratifiedKFold(n_splits=10, shuffle=True, random_state=42), 
+        verbose=1, 
+        n_jobs=-1 # Usa todos os núcleos do processador para acelerar
+    )
+    
+    # Executa o Grid Search
+    grid_search.fit(X, y)
+    
+    # Imprime os resultados
+    print(f"   🏆 Melhor F1-Score (média CV): {grid_search.best_score_:.4f}")
+    print(f"   ⚙️  Melhores Parâmetros: {grid_search.best_params_}")
+    
+    # Retorna o melhor modelo encontrado
+    return grid_search.best_estimator_['clf']
+
+
+# --- Execução da Otimização ---
+melhores_modelos_otimizados = {}
+print("\n" + "="*50)
+print("INICIANDO A OTIMIZAÇÃO DE PARÂMETROS (Critério 1.2)")
+print("="*50)
+
+# 1. Otimização para KNN
+melhores_modelos_otimizados["KNN (Otimizado)"] = otimizar_modelo(
+    "KNN", KNeighborsClassifier(), params_knn, X, y
+)
+
+# 2. Otimização para Decision Tree
+melhores_modelos_otimizados["Decision Tree (Otimizada)"] = otimizar_modelo(
+    "Decision Tree", DecisionTreeClassifier(random_state=42), params_dt, X, y
+)
+
+# 3. Otimização para MLP
+melhores_modelos_otimizados["MLP (Otimizado)"] = otimizar_modelo(
+    "MLP", MLPClassifier(max_iter=1000, random_state=42), params_mlp, X, y
+)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 6) EXECUTAR TODOS OS MODELOS (Originais e Otimizados) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Incluir os modelos otimizados na lista de modelos a serem avaliados
+modelos.update(melhores_modelos_otimizados) 
+
+print("\n" + "="*50)
+print("AVALIAÇÃO FINAL (Originais e Otimizados)")
+print("="*50)
+
+# Avaliar todos os modelos (originais + otimizados)
 for nome, modelo in modelos.items():
     avaliar_modelo(nome, modelo, X, y)
