@@ -15,31 +15,67 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 
+#  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1) PRÉ-PROCESSAMENTO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 1) CARREGAMENTO DO DATASET ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Lê o arquivo CSV fornecido pelo site do dataset para um DataFrame do pandas.
-df = pd.read_csv("detect_dataset.csv")
+print("\n  Iniciando o pré-processamento do detect_dataset.csv \n")
 
+#Carregar dataset
+df_detect = pd.read_csv("detect_dataset.csv")
 
-# Função para remover colunas vazias que vem diretamente do arquivo csv
-# Se essas colunas não existirem, o drop causará um erro — use df.columns para checar.
-df = df.drop(columns=["Unnamed: 7", "Unnamed: 8"])
+# Remove colunas vazias
+# O parâmetro 'errors='ignore'' evita erro caso as colunas "Unnamed: 7" e "Unnamed: 8" já tenham sido removidas ou não existam.
+df_detect = df_detect.drop(columns=["Unnamed: 7", "Unnamed: 8"], errors='ignore')
+
+# Início da Impressão de Informações
+print("Shape do DataFrame após carregar e remover colunas vazias:", df_detect.shape)
+print("\nPrimeiras 5 registros (com colunas vazias removidas):")
+print(df_detect.head())
+
+# Informações básicas sobre o dataset
+print("\nTipos das colunas:")
+print(df_detect.dtypes)
+print("\nValores ausentes por coluna (antes da limpeza):")
+print(df_detect.isnull().sum())
+print("\nTotal de linhas duplicadas (antes da limpeza):", df_detect.duplicated().sum())
+
+# Limpeza para remover duplicadas e nulos
+df_clean = df_detect.drop_duplicates()
+df_clean = df_clean.dropna()
+print("\nShape após remover duplicadas:", df_clean.shape)
+print("Shape após remover nulos:", df_clean.shape)
+
+# Distribuição da classe (detectada automaticamente)
+coluna_classe = df_detect.columns[0] 
+print(f"\nDistribuição da classe ({coluna_classe}):")
+print(df_detect[coluna_classe].value_counts())
+
+# Salvar bases
+df_detect.to_csv("detect_dataset_original.csv", index=False)
+df_clean.to_csv("detect_dataset_processada.csv", index=False)
+print(f"\n Base original salva como detect_dataset_original.csv")
+print(f"\n Base processada salva como detect_dataset_processada.csv")
+print("\n PRÉ-PROCESSAMENTO CONCLUÍDO \n")
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 2) CARREGAMENTO DO DATASET ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+print("Iniciando carregamento do dataset processado...")
+
+# 🔴 CORREÇÃO: Lê o arquivo CSV FINAL (limpo de nulos, duplicatas e colunas vazias)
+df = pd.read_csv("detect_dataset_processada.csv")
 
 # Fazendo a separação dos atributos (X) e rótulos (y):
 # - X deve contem apenas as features (dados de entrada numéricos)
 # - y é a coluna que contém as classes que queremos prever
-
 X = df.drop(columns=["Output (S)"])  # todas as colunas exceto a coluna de saída
 y = df["Output (S)"]  # coluna principal
 
 # Notificações importantes no terminal pra verificar que o dataset carregou corretamente:
-print("Dataset carregado com sucesso!")
+print("Dataset processado carregado com sucesso!")
 print("Primeiras linhas do DataFrame:")
 print(df.head(), "\n")
 print("Formato do DataFrame (linhas, colunas):", df.shape)
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 2) DEFINIÇÃO DOS MODELOS E PARÂMETROS (mínimo 3 combinações) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 3) DEFINIÇÃO DOS MODELOS E PARÂMETROS (mínimo 3 combinações) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Nesta versão, **não teremos parâmetro nenhum**, pois isso será feito pelo seu amigo.
 # Mantemos APENAS os classificadores, como parte de "Uso dos Algoritmos".
 
@@ -52,7 +88,7 @@ modelos = {
 }
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 3) FUNÇÃO DE AVALIAÇÃO EM 10-FOLD CV ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 4) FUNÇÃO DE AVALIAÇÃO EM 10-FOLD CV ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 def avaliar_modelo(nome, modelo, X, y):
     # Avalia um modelo usando Stratified 10-fold CV.
     #Calcula métricas fold-a-fold pra obter média e desvio padrão com sucesso
@@ -107,53 +143,7 @@ def avaliar_modelo(nome, modelo, X, y):
     print(f"F1-Score: média={np.mean(f1s):.4f} | desvio={np.std(f1s):.4f}")
 
 
-#  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  4) EXECUTAR OS 5 MODELOS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  5) EXECUTAR OS 5 MODELOS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Função para executar os 5 modelos:
 for nome, modelo in modelos.items():
     avaliar_modelo(nome, modelo, X, y)
-
-#  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  PRÉ-PROCESSAMENTO ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-import pandas as pd
-
-print("\n INICIANDO PRÉ-PROCESSAMENTO \n")
-
-#Carregar dataset
-df = pd.read_csv("classData.csv")
-
-print("Shape original:", df.shape)
-print("\nPrimeiros 5 registros:")
-print(df.head())
-
-#Informações básicas sobre o dataset
-print("\nTipos das colunas:")
-print(df.dtypes)
-
-print("\nValores ausentes por coluna:")
-print(df.isnull().sum())
-
-print("\nTotal de linhas duplicadas:", df.duplicated().sum())
-
-#Limpeza para remover duplicadas e nulos
-df_clean = df.drop_duplicates()
-df_clean = df_clean.dropna()
-
-print("\nShape após remover duplicadas:", df_clean.shape)
-print("Shape após remover nulos:", df_clean.shape)
-
-# Distribuição da classe (detectada automaticamente)
-coluna_classe = df.columns[-1]
-print(f"\nDistribuição da classe ({coluna_classe}):")
-print(df[coluna_classe].value_counts())
-
-#Salvar bases
-df.to_csv("classData_original.csv", index=False)
-df_clean.to_csv("classData_processada.csv", index=False)
-
-print("\n Base original limpa salva como classData_original.csv")
-print("\n Base processada salva como classData_processada.csv")
-print("\n PRÉ-PROCESSAMENTO CONCLUÍDO \n")
-
-
-
